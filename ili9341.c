@@ -1,3 +1,9 @@
+/**
+ * Copyright (c) 2022 Nicolai Electronics
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 #include <sdkconfig.h>
 #include <stdbool.h>
 #include <stdint.h>
