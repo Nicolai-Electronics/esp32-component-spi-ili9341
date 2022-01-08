@@ -121,6 +121,7 @@ typedef struct ILI9341 {
     uint32_t spi_speed;
     uint32_t spi_max_transfer_size;
     ili9341_cb_t callback;
+    uint8_t queue_size;
   //  Internal state
     spi_device_handle_t spi_device;
     bool dc_level;

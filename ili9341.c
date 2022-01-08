@@ -221,8 +221,8 @@ esp_err_t ili9341_init(ILI9341* device) {
             .clock_speed_hz = device->spi_speed,
             .mode           = 0,  // SPI mode 0
             .spics_io_num   = device->pin_cs,
-            .queue_size     = 1,
-            .flags          = (SPI_DEVICE_HALFDUPLEX | SPI_DEVICE_3WIRE),
+            .queue_size     = device->queue_size,
+            .flags          = SPI_DEVICE_HALFDUPLEX,
             .pre_cb         = ili9341_spi_pre_transfer_callback, // Specify pre-transfer callback to handle D/C line
         };
         res = spi_bus_add_device(VSPI_HOST, &devcfg, &device->spi_device);
