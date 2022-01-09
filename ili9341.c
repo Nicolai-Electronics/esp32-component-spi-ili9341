@@ -87,6 +87,10 @@ esp_err_t ili9341_send_command(ILI9341* device, const uint8_t cmd) {
     return ili9341_send(device, &cmd, 1, false);
 }
 
+esp_err_t ili9341_send_data(ILI9341* device, const uint8_t* data, const uint16_t length) {
+    return ili9341_send(device, data, length, true);
+}
+
 esp_err_t ili9341_send_u32(ILI9341* device, const uint32_t data) {
     uint8_t buffer[4];
     buffer[0] = (data>>24)&0xFF;
@@ -193,6 +197,34 @@ esp_err_t ili9341_set_invert(ILI9341* device, const bool state) {
         return ili9341_send_command(device, ILI9341_INVON);
     } else {
         return ili9341_send_command(device, ILI9341_INVOFF);
+    }
+}
+
+esp_err_t ili9341_set_partial_scanning(ILI9341* device, const uint16_t start_row, const uint16_t end_row) {
+    if ((start_row == 0) && (end_row >= ILI9341_HEIGHT - 1)) {
+        return ili9341_send_command(device, ILI9341_NORON);
+    } else {
+        esp_err_t res = ili9341_send_command(device, ILI9341_PTLAR);
+        if (res != ESP_OK) return res;
+        res = ili9341_send_u32(device, (start_row << 16) | end_row);
+        if (res != ESP_OK) return res;
+        return ili9341_send_command(device, ILI9341_PTLON);
+    }
+}
+
+esp_err_t ili9341_set_tearing_effect_line(ILI9341* device, const bool state) {
+    if (state) {
+        return ili9341_send_command(device, ILI9341_TEON);
+    } else {
+        return ili9341_send_command(device, ILI9341_TEOFF);
+    }
+}
+
+esp_err_t ili9341_set_idle_mode(ILI9341* device, const bool state) {
+    if (state) {
+        return ili9341_send_command(device, ILI9341_IDMON);
+    } else {
+        return ili9341_send_command(device, ILI9341_IDMOFF);
     }
 }
 

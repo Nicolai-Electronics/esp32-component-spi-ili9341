@@ -1,13 +1,25 @@
+/**
+ * Copyright (c) 2022 Nicolai Electronics
+ *
+ * SPDX-License-Identifier: MIT
+ */
+
 #pragma once
+
+#ifdef __cplusplus
+extern "C" {
+#endif //__cplusplus
 
 #include <stdbool.h>
 #include <stdint.h>
 #include <esp_err.h>
 
-#define ILI9341_WIDTH  320
-#define ILI9341_HEIGHT 240
+#define ILI9341_WIDTH       320
+#define ILI9341_HEIGHT      240
 #define ILI9341_BUFFER_SIZE ILI9341_WIDTH * ILI9341_HEIGHT * 2 // Each pixel takes 16 bits
+#define ILI9341_BPP         16
 
+// Registers
 #define ILI9341_NOP         0x00
 #define ILI9341_SWRESET     0x01 // Software Reset
 #define ILI9341_RDDID       0x04 // Read Display ID
@@ -133,7 +145,16 @@ esp_err_t ili9341_deinit(ILI9341* device);
 esp_err_t ili9341_set_sleep(ILI9341* device, const bool state);
 esp_err_t ili9341_set_display(ILI9341* device, const bool state);
 esp_err_t ili9341_set_invert(ILI9341* device, const bool state);
+esp_err_t ili9341_set_partial_scanning(ILI9341* device, const uint16_t start_row, const uint16_t end_row);
+esp_err_t ili9341_set_tearing_effect_line(ILI9341* device, const bool state);
+esp_err_t ili9341_set_idle_mode(ILI9341* device, const bool state);
+
 esp_err_t ili9341_write(ILI9341* device, const uint8_t *data);
 esp_err_t ili9341_write_partial_direct(ILI9341* device, const uint8_t *buffer, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
 esp_err_t ili9341_write_partial(ILI9341* device, const uint8_t *buffer, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
+
 esp_err_t ili9341_select(ILI9341* device, const bool mode);
+
+#ifdef __cplusplus
+}
+#endif //__cplusplus
