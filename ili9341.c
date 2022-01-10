@@ -22,12 +22,13 @@
 #include <freertos/FreeRTOS.h>
 #include <freertos/semphr.h>
 #include <freertos/task.h>
-#include <esp_log.h>
 #include <driver/gpio.h>
 
 #include "include/ili9341.h"
 
-static void ili9341_spi_pre_transfer_callback(spi_transaction_t *t) {
+static const char *TAG = "ili9341";
+
+static void IRAM_ATTR ili9341_spi_pre_transfer_callback(spi_transaction_t *t) {
     ILI9341* device = ((ILI9341*) t->user);
     gpio_set_level(device->pin_dcx, device->dc_level);
 }
@@ -158,18 +159,22 @@ esp_err_t ili9341_set_cfg(ILI9341* device, uint8_t rotation, bool color_mode) {
 
 esp_err_t ili9341_reset(ILI9341* device) {
     if (device->pin_reset >= 0) {
+        ESP_LOGI(TAG, "reset");
         esp_err_t res = gpio_set_level(device->pin_reset, false);
         if (res != ESP_OK) return res;
         vTaskDelay(50 / portTICK_PERIOD_MS);
         res = gpio_set_level(device->pin_reset, true);
         if (res != ESP_OK) return res;
         vTaskDelay(50 / portTICK_PERIOD_MS);
+    } else {
+        ESP_LOGI(TAG, "not reset: no reset pin available");
     }
     return ESP_OK;
 }
 
 esp_err_t ili9341_set_sleep(ILI9341* device, const bool state) {
     esp_err_t res;
+    ESP_LOGI(TAG, "sleep mode %s", state ? "on" : "off");
     if (state) {
         res = ili9341_send_command(device, ILI9341_SLPIN);
         if (res != ESP_OK) return res;
@@ -182,6 +187,7 @@ esp_err_t ili9341_set_sleep(ILI9341* device, const bool state) {
 
 esp_err_t ili9341_set_display(ILI9341* device, const bool state) {
     esp_err_t res;
+    ESP_LOGI(TAG, "sleep display %s", state ? "on" : "off");
     if (state) {
         res = ili9341_send_command(device, ILI9341_DISPON);
         if (res != ESP_OK) return res;
@@ -193,6 +199,7 @@ esp_err_t ili9341_set_display(ILI9341* device, const bool state) {
 }
 
 esp_err_t ili9341_set_invert(ILI9341* device, const bool state) {
+    ESP_LOGI(TAG, "invert %s", state ? "on" : "off");
     if (state) {
         return ili9341_send_command(device, ILI9341_INVON);
     } else {
@@ -200,19 +207,22 @@ esp_err_t ili9341_set_invert(ILI9341* device, const bool state) {
     }
 }
 
-esp_err_t ili9341_set_partial_scanning(ILI9341* device, const uint16_t start_row, const uint16_t end_row) {
-    if ((start_row == 0) && (end_row >= ILI9341_HEIGHT - 1)) {
+esp_err_t ili9341_set_partial_scanning(ILI9341* device, const uint16_t start, const uint16_t end) {
+    if ((start == 0) && (end >= ILI9341_WIDTH - 1)) {
+        ESP_LOGI(TAG, "partial scanning off");
         return ili9341_send_command(device, ILI9341_NORON);
     } else {
+        ESP_LOGI(TAG, "partial scanning on (%u to %u)", start, end);
         esp_err_t res = ili9341_send_command(device, ILI9341_PTLAR);
         if (res != ESP_OK) return res;
-        res = ili9341_send_u32(device, (start_row << 16) | end_row);
+        res = ili9341_send_u32(device, (start << 16) | end);
         if (res != ESP_OK) return res;
         return ili9341_send_command(device, ILI9341_PTLON);
     }
 }
 
 esp_err_t ili9341_set_tearing_effect_line(ILI9341* device, const bool state) {
+    ESP_LOGI(TAG, "tearing effect line %s", state ? "on" : "off");
     if (state) {
         return ili9341_send_command(device, ILI9341_TEON);
     } else {
@@ -221,6 +231,7 @@ esp_err_t ili9341_set_tearing_effect_line(ILI9341* device, const bool state) {
 }
 
 esp_err_t ili9341_set_idle_mode(ILI9341* device, const bool state) {
+    ESP_LOGI(TAG, "idle mode %s", state ? "on" : "off");
     if (state) {
         return ili9341_send_command(device, ILI9341_IDMON);
     } else {
@@ -247,15 +258,23 @@ esp_err_t ili9341_init(ILI9341* device) {
     //Initialize data/clock select GPIO pin
     res = gpio_set_direction(device->pin_dcx, GPIO_MODE_OUTPUT);
     if (res != ESP_OK) return res;
-    
+
     if (device->spi_device == NULL) {
         spi_device_interface_config_t devcfg = {
-            .clock_speed_hz = device->spi_speed,
-            .mode           = 0,  // SPI mode 0
-            .spics_io_num   = device->pin_cs,
-            .queue_size     = device->queue_size,
-            .flags          = SPI_DEVICE_HALFDUPLEX,
-            .pre_cb         = ili9341_spi_pre_transfer_callback, // Specify pre-transfer callback to handle D/C line
+            .command_bits     = 0,
+            .address_bits     = 0,
+            .dummy_bits       = 0,
+            .mode             = 0, // SPI mode 0
+            .duty_cycle_pos   = 128,
+            .cs_ena_pretrans  = 0,
+            .cs_ena_posttrans = 0,
+            .clock_speed_hz   = device->spi_speed,
+            .input_delay_ns   = 0,
+            .spics_io_num     = device->pin_cs,
+            .flags            = SPI_DEVICE_HALFDUPLEX,
+            .queue_size       = 1,
+            .pre_cb           = ili9341_spi_pre_transfer_callback, // Handles D/C line
+            .post_cb          = NULL
         };
         res = spi_bus_add_device(VSPI_HOST, &devcfg, &device->spi_device);
         if (res != ESP_OK) return res;

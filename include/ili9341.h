@@ -133,7 +133,6 @@ typedef struct ILI9341 {
     uint32_t spi_speed;
     uint32_t spi_max_transfer_size;
     ili9341_cb_t callback;
-    uint8_t queue_size;
   //  Internal state
     spi_device_handle_t spi_device;
     bool dc_level;
@@ -145,7 +144,7 @@ esp_err_t ili9341_deinit(ILI9341* device);
 esp_err_t ili9341_set_sleep(ILI9341* device, const bool state);
 esp_err_t ili9341_set_display(ILI9341* device, const bool state);
 esp_err_t ili9341_set_invert(ILI9341* device, const bool state);
-esp_err_t ili9341_set_partial_scanning(ILI9341* device, const uint16_t start_row, const uint16_t end_row);
+esp_err_t ili9341_set_partial_scanning(ILI9341* device, const uint16_t start, const uint16_t end);
 esp_err_t ili9341_set_tearing_effect_line(ILI9341* device, const bool state);
 esp_err_t ili9341_set_idle_mode(ILI9341* device, const bool state);
 
