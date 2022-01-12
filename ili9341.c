@@ -158,6 +158,7 @@ esp_err_t ili9341_set_cfg(ILI9341* device, uint8_t rotation, bool color_mode) {
 }
 
 esp_err_t ili9341_reset(ILI9341* device) {
+    if (device->mutex != NULL) xSemaphoreTake(device->mutex, portMAX_DELAY);
     if (device->pin_reset >= 0) {
         ESP_LOGI(TAG, "reset");
         esp_err_t res = gpio_set_level(device->pin_reset, false);
@@ -169,12 +170,14 @@ esp_err_t ili9341_reset(ILI9341* device) {
     } else {
         ESP_LOGI(TAG, "not reset: no reset pin available");
     }
+    if (device->mutex != NULL) xSemaphoreGive(device->mutex);
     return ESP_OK;
 }
 
 esp_err_t ili9341_set_sleep(ILI9341* device, const bool state) {
     esp_err_t res;
     ESP_LOGI(TAG, "sleep mode %s", state ? "on" : "off");
+    if (device->mutex != NULL) xSemaphoreTake(device->mutex, portMAX_DELAY);
     if (state) {
         res = ili9341_send_command(device, ILI9341_SLPIN);
         if (res != ESP_OK) return res;
@@ -182,12 +185,15 @@ esp_err_t ili9341_set_sleep(ILI9341* device, const bool state) {
         res = ili9341_send_command(device, ILI9341_SLPOUT);
         if (res != ESP_OK) return res;
     }
+    if (device->mutex != NULL) xSemaphoreGive(device->mutex);
     return res;
 }
 
 esp_err_t ili9341_set_display(ILI9341* device, const bool state) {
     esp_err_t res;
     ESP_LOGI(TAG, "sleep display %s", state ? "on" : "off");
+    if (device->mutex != NULL) xSemaphoreTake(device->mutex, portMAX_DELAY);
+    
     if (state) {
         res = ili9341_send_command(device, ILI9341_DISPON);
         if (res != ESP_OK) return res;
@@ -195,19 +201,24 @@ esp_err_t ili9341_set_display(ILI9341* device, const bool state) {
         res = ili9341_send_command(device, ILI9341_DISPOFF);
         if (res != ESP_OK) return res;
     }
+    if (device->mutex != NULL) xSemaphoreGive(device->mutex);
     return res;
 }
 
 esp_err_t ili9341_set_invert(ILI9341* device, const bool state) {
     ESP_LOGI(TAG, "invert %s", state ? "on" : "off");
+    if (device->mutex != NULL) xSemaphoreTake(device->mutex, portMAX_DELAY);
+    
     if (state) {
         return ili9341_send_command(device, ILI9341_INVON);
     } else {
         return ili9341_send_command(device, ILI9341_INVOFF);
     }
+    if (device->mutex != NULL) xSemaphoreGive(device->mutex);
 }
 
 esp_err_t ili9341_set_partial_scanning(ILI9341* device, const uint16_t start, const uint16_t end) {
+    if (device->mutex != NULL) xSemaphoreTake(device->mutex, portMAX_DELAY);
     if ((start == 0) && (end >= ILI9341_WIDTH - 1)) {
         ESP_LOGI(TAG, "partial scanning off");
         return ili9341_send_command(device, ILI9341_NORON);
@@ -219,24 +230,29 @@ esp_err_t ili9341_set_partial_scanning(ILI9341* device, const uint16_t start, co
         if (res != ESP_OK) return res;
         return ili9341_send_command(device, ILI9341_PTLON);
     }
+    if (device->mutex != NULL) xSemaphoreGive(device->mutex);
 }
 
 esp_err_t ili9341_set_tearing_effect_line(ILI9341* device, const bool state) {
     ESP_LOGI(TAG, "tearing effect line %s", state ? "on" : "off");
+    if (device->mutex != NULL) xSemaphoreTake(device->mutex, portMAX_DELAY);
     if (state) {
         return ili9341_send_command(device, ILI9341_TEON);
     } else {
         return ili9341_send_command(device, ILI9341_TEOFF);
     }
+    if (device->mutex != NULL) xSemaphoreGive(device->mutex);
 }
 
 esp_err_t ili9341_set_idle_mode(ILI9341* device, const bool state) {
     ESP_LOGI(TAG, "idle mode %s", state ? "on" : "off");
+    if (device->mutex != NULL) xSemaphoreTake(device->mutex, portMAX_DELAY);
     if (state) {
         return ili9341_send_command(device, ILI9341_IDMON);
     } else {
         return ili9341_send_command(device, ILI9341_IDMOFF);
     }
+    if (device->mutex != NULL) xSemaphoreGive(device->mutex);
 }
 
 esp_err_t ili9341_init(ILI9341* device) {
@@ -244,6 +260,12 @@ esp_err_t ili9341_init(ILI9341* device) {
     
     if (device->pin_dcx < 0) return ESP_FAIL;
     if (device->pin_cs < 0) return ESP_FAIL;
+    
+    /*if (device->mutex == NULL) {
+        device->mutex = xSemaphoreCreateMutex();
+    }*/
+    
+    if (device->mutex != NULL) xSemaphoreGive(device->mutex);
     
     //Initialize reset GPIO pin
     if (device->pin_reset >= 0) {
@@ -304,6 +326,7 @@ esp_err_t ili9341_init(ILI9341* device) {
 }
 
 esp_err_t ili9341_deinit(ILI9341* device) {
+    if (device->mutex != NULL) xSemaphoreTake(device->mutex, portMAX_DELAY); // Block access to the peripheral while deinitialized
     esp_err_t res;
     if (device->spi_device != NULL) {
         res = spi_bus_remove_device(device->spi_device);
@@ -330,23 +353,48 @@ esp_err_t ili9341_select(ILI9341* device, const bool state) {
 }
 
 esp_err_t ili9341_write(ILI9341* device, const uint8_t *buffer) {
-    return ili9341_write_partial(device, buffer, 0, 0, ILI9341_WIDTH, ILI9341_HEIGHT);
+    return ili9341_write_partial_direct(device, buffer, 0, 0, ILI9341_WIDTH, ILI9341_HEIGHT);
 }
 
 esp_err_t ili9341_write_partial_direct(ILI9341* device, const uint8_t *buffer, uint16_t x, uint16_t y, uint16_t width, uint16_t height) { // Without conversion
     if (device->spi_device == NULL) return ESP_FAIL;
+    if (device->mutex != NULL) xSemaphoreTake(device->mutex, portMAX_DELAY);
     esp_err_t res = ili9341_set_addr_window(device, x, y, width, height);
-    if (res != ESP_OK) return res;
-    res = ili9341_send(device, buffer, width * height * 2, true);
+    if (res != ESP_OK) {
+        if (device->mutex != NULL) xSemaphoreGive(device->mutex);
+        return res;
+    }
+    
+    uint32_t position = 0;
+    while (width * height * 2 - position > 0) {
+        uint32_t length = device->spi_max_transfer_size;
+        if (width * height * 2 - position < device->spi_max_transfer_size) length = width * height * 2 - position;
+        
+        res = ili9341_send(device, &buffer[position], length, true);
+        if (res != ESP_OK) {
+            if (device->mutex != NULL) xSemaphoreGive(device->mutex);
+            return res;
+        }
+        position += length;
+    }
+    if (device->mutex != NULL) xSemaphoreGive(device->mutex);
     return res;
 }
 
 esp_err_t ili9341_write_partial(ILI9341* device, const uint8_t *frameBuffer, uint16_t x, uint16_t y, uint16_t width, uint16_t height) { // With conversion
-    if (device->spi_device == NULL) return ESP_FAIL;
+    if (device->mutex != NULL) xSemaphoreTake(device->mutex, portMAX_DELAY);
+    
+    if (device->spi_device == NULL) {
+        if (device->mutex != NULL) xSemaphoreGive(device->mutex);
+        return ESP_FAIL;
+    }
     esp_err_t res = ESP_OK;
 
     uint8_t *buffer = heap_caps_malloc(device->spi_max_transfer_size, MALLOC_CAP_8BIT);
-    if (buffer == NULL) return ESP_FAIL;
+    if (buffer == NULL) {
+        if (device->mutex != NULL) xSemaphoreGive(device->mutex);
+        return ESP_FAIL;
+    }
 
     while (width > 0) {
         uint16_t transactionWidth = width;
@@ -356,6 +404,7 @@ esp_err_t ili9341_write_partial(ILI9341* device, const uint8_t *frameBuffer, uin
         res = ili9341_set_addr_window(device, x, y, transactionWidth, height);
         if (res != ESP_OK) {
             free(buffer);
+            if (device->mutex != NULL) xSemaphoreGive(device->mutex);
             return res;
         }
         for (uint16_t currentLine = 0; currentLine < height; currentLine++) {
@@ -366,6 +415,7 @@ esp_err_t ili9341_write_partial(ILI9341* device, const uint8_t *frameBuffer, uin
             res = ili9341_send(device, buffer, transactionWidth*2, true);
             if (res != ESP_OK) {
                 free(buffer);
+                if (device->mutex != NULL) xSemaphoreGive(device->mutex);
                 return res;
             }
         }
@@ -373,5 +423,6 @@ esp_err_t ili9341_write_partial(ILI9341* device, const uint8_t *frameBuffer, uin
         x += transactionWidth;
     }
     free(buffer);
+    if (device->mutex != NULL) xSemaphoreGive(device->mutex);
     return res;
 }

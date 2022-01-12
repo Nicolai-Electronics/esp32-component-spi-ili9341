@@ -122,20 +122,22 @@ extern "C" {
 typedef void (*ili9341_cb_t)(bool); // Callback for init / deinit
 
 typedef struct ILI9341 {
-  //  Pins
+    // Pins
     int spi_bus;
     int pin_cs;
     int pin_dcx;
     int pin_reset;
-  //  Configuration
+    // Configuration
     uint8_t rotation;
     bool color_mode;
     uint32_t spi_speed;
     uint32_t spi_max_transfer_size;
     ili9341_cb_t callback;
-  //  Internal state
+    // Internal state
     spi_device_handle_t spi_device;
     bool dc_level;
+    // Mutex
+    SemaphoreHandle_t mutex;
 } ILI9341;
 
 esp_err_t ili9341_init(ILI9341* device);
