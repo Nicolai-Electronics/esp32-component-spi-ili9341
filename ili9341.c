@@ -168,7 +168,8 @@ esp_err_t ili9341_reset(ILI9341* device) {
         if (res != ESP_OK) return res;
         vTaskDelay(50 / portTICK_PERIOD_MS);
     } else {
-        ESP_LOGI(TAG, "not reset: no reset pin available");
+        ESP_LOGI(TAG, "(no reset pin available)");
+        vTaskDelay(100 / portTICK_PERIOD_MS);
     }
     if (device->mutex != NULL) xSemaphoreGive(device->mutex);
     return ESP_OK;
@@ -272,10 +273,6 @@ esp_err_t ili9341_init(ILI9341* device) {
         res = gpio_set_direction(device->pin_reset, GPIO_MODE_OUTPUT);
         if (res != ESP_OK) return res;
     }
-    
-    if (device->callback != NULL) {
-        device->callback(false);
-    }
 
     //Initialize data/clock select GPIO pin
     res = gpio_set_direction(device->pin_dcx, GPIO_MODE_OUTPUT);
@@ -300,6 +297,10 @@ esp_err_t ili9341_init(ILI9341* device) {
         };
         res = spi_bus_add_device(VSPI_HOST, &devcfg, &device->spi_device);
         if (res != ESP_OK) return res;
+    }
+
+    if (device->callback != NULL) {
+        device->callback(false);
     }
 
     //Reset the LCD display
