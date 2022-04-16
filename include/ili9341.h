@@ -13,6 +13,10 @@ extern "C" {
 #include <stdbool.h>
 #include <stdint.h>
 #include <esp_err.h>
+#include <driver/spi_master.h>
+#include <freertos/FreeRTOS.h>
+#include <freertos/task.h>
+#include <freertos/semphr.h>
 
 #define ILI9341_WIDTH       320
 #define ILI9341_HEIGHT      240
