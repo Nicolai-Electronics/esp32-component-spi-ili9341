@@ -345,6 +345,8 @@ esp_err_t ili9341_deinit(ILI9341* device) {
     if (device->callback != NULL) {
         device->callback(true);
     }
+    res = ili9341_reset(device);
+    if (res != ESP_OK) return res;
     res = ili9341_select(device, true);
     if (res != ESP_OK) return res;
     return res;
