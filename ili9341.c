@@ -165,8 +165,10 @@ esp_err_t ili9341_reset(ILI9341* device) {
         ESP_LOGI(TAG, "reset");
         esp_err_t res = gpio_set_level(device->pin_reset, false);
         if (res != ESP_OK) return res;
+        res = gpio_set_direction(device->pin_reset, GPIO_MODE_OUTPUT);
+        if (res != ESP_OK) return res;
         vTaskDelay(50 / portTICK_PERIOD_MS);
-        res = gpio_set_level(device->pin_reset, true);
+        res = gpio_set_direction(device->pin_reset, GPIO_MODE_INPUT);
         if (res != ESP_OK) return res;
         vTaskDelay(50 / portTICK_PERIOD_MS);
     } else {
@@ -269,12 +271,6 @@ esp_err_t ili9341_init(ILI9341* device) {
     }*/
     
     if (device->mutex != NULL) xSemaphoreGive(device->mutex);
-    
-    //Initialize reset GPIO pin
-    if (device->pin_reset >= 0) {
-        res = gpio_set_direction(device->pin_reset, GPIO_MODE_OUTPUT);
-        if (res != ESP_OK) return res;
-    }
 
     //Initialize data/clock select GPIO pin
     res = gpio_set_direction(device->pin_dcx, GPIO_MODE_OUTPUT);
