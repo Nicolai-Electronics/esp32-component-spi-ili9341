@@ -334,16 +334,12 @@ esp_err_t ili9341_deinit(ILI9341* device) {
     }
     res = gpio_set_direction(device->pin_dcx, GPIO_MODE_INPUT);
     if (res != ESP_OK) return res;
-    res = gpio_set_direction(device->pin_cs, GPIO_MODE_OUTPUT);
-    if (res != ESP_OK) return res;
-    res = ili9341_select(device, false);
+    res = gpio_set_direction(device->pin_cs, GPIO_MODE_INPUT);
     if (res != ESP_OK) return res;
     if (device->callback != NULL) {
         device->callback(true);
     }
     res = ili9341_reset(device);
-    if (res != ESP_OK) return res;
-    res = ili9341_select(device, true);
     if (res != ESP_OK) return res;
     return res;
 }
