@@ -443,3 +443,12 @@ esp_err_t ili9341_write_partial(ILI9341* device, const uint8_t *frameBuffer, uin
     if (device->mutex != NULL) xSemaphoreGive(device->mutex);
     return res;
 }
+
+esp_err_t ili9341_power_en(ILI9341* device) {
+    if (device->pin_reset >= 0 && !device->reset_external_pullup) {
+//        ESP_LOGI(TAG, "keep state of pin %d", device->pin_reset);
+        // If there is no external pullup, we need to keep the reset pin HIGH during sleep
+        return gpio_hold_en(device->pin_reset);
+    }
+    return ESP_OK;
+}

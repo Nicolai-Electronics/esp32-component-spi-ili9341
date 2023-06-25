@@ -162,6 +162,8 @@ esp_err_t ili9341_write_partial(ILI9341* device, const uint8_t *buffer, uint16_t
 
 esp_err_t ili9341_select(ILI9341* device, const bool mode);
 
+esp_err_t ili9341_power_en(ILI9341* device);
+
 #ifdef __cplusplus
 }
 #endif //__cplusplus
