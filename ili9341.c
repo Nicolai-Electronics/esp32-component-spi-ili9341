@@ -180,6 +180,7 @@ esp_err_t ili9341_reset(ILI9341* device) {
             res = gpio_set_level(device->pin_reset, false);
             if (res != ESP_OK) return res;
             vTaskDelay(50 / portTICK_PERIOD_MS);
+            ESP_LOGI(TAG, "setting reset line to high");
             res = gpio_set_level(device->pin_reset, true);
             if (res != ESP_OK) return res;
             vTaskDelay(50 / portTICK_PERIOD_MS);
@@ -188,6 +189,7 @@ esp_err_t ili9341_reset(ILI9341* device) {
         ESP_LOGI(TAG, "(no reset pin available)");
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
+
     if (device->mutex != NULL) xSemaphoreGive(device->mutex);
     return ESP_OK;
 }
@@ -289,10 +291,11 @@ esp_err_t ili9341_init(ILI9341* device) {
     res = gpio_set_direction(device->pin_dcx, GPIO_MODE_OUTPUT);
     if (res != ESP_OK) return res;
 
-    if (!device->reset_external_pullup) {
-        res = gpio_set_direction(device->pin_reset, GPIO_MODE_OUTPUT);
+    if (!device->reset_external_pullup && device->pin_reset >= 0) {
+        res = gpio_hold_dis(device->pin_reset);
         if (res != ESP_OK) return res;
-        res = gpio_set_level(device->pin_reset, true);
+
+        res = gpio_set_direction(device->pin_reset, GPIO_MODE_OUTPUT);
         if (res != ESP_OK) return res;
     }
 
@@ -446,7 +449,7 @@ esp_err_t ili9341_write_partial(ILI9341* device, const uint8_t *frameBuffer, uin
 
 esp_err_t ili9341_power_en(ILI9341* device) {
     if (device->pin_reset >= 0 && !device->reset_external_pullup) {
-//        ESP_LOGI(TAG, "keep state of pin %d", device->pin_reset);
+        ESP_LOGI(TAG, "keep state of pin %d", device->pin_reset);
         // If there is no external pullup, we need to keep the reset pin HIGH during sleep
         return gpio_hold_en(device->pin_reset);
     }
