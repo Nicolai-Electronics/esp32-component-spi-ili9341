@@ -66,7 +66,10 @@ esp_err_t ili9341_send(ILI9341* device, const uint8_t *data, const int len, cons
         .tx_buffer = data,
         .user = (void*) device,
     };
-    return spi_device_transmit(device->spi_device, &transaction);
+    if (device->spi_semaphore != NULL) xSemaphoreTake(device->spi_semaphore, portMAX_DELAY);
+    esp_err_t res = spi_device_transmit(device->spi_device, &transaction);
+    if (device->spi_semaphore != NULL) xSemaphoreGive(device->spi_semaphore);
+    return res;
 }
 
 esp_err_t ili9341_write_init_data(ILI9341* device, const uint8_t * data) {
@@ -161,20 +164,32 @@ esp_err_t ili9341_set_cfg(ILI9341* device, uint8_t rotation, bool color_mode) {
 
 esp_err_t ili9341_reset(ILI9341* device) {
     if (device->mutex != NULL) xSemaphoreTake(device->mutex, portMAX_DELAY);
+    esp_err_t res;
     if (device->pin_reset >= 0) {
         ESP_LOGI(TAG, "reset");
-        esp_err_t res = gpio_set_level(device->pin_reset, false);
-        if (res != ESP_OK) return res;
-        res = gpio_set_direction(device->pin_reset, GPIO_MODE_OUTPUT);
-        if (res != ESP_OK) return res;
-        vTaskDelay(50 / portTICK_PERIOD_MS);
-        res = gpio_set_direction(device->pin_reset, GPIO_MODE_INPUT);
-        if (res != ESP_OK) return res;
-        vTaskDelay(50 / portTICK_PERIOD_MS);
+        if (device->reset_external_pullup) {
+                res = gpio_set_level(device->pin_reset, false);
+                if (res != ESP_OK) return res;
+                res = gpio_set_direction(device->pin_reset, GPIO_MODE_OUTPUT);
+                if (res != ESP_OK) return res;
+                vTaskDelay(50 / portTICK_PERIOD_MS);
+                res = gpio_set_direction(device->pin_reset, GPIO_MODE_INPUT);
+                if (res != ESP_OK) return res;
+                vTaskDelay(50 / portTICK_PERIOD_MS);
+        } else {
+            res = gpio_set_level(device->pin_reset, false);
+            if (res != ESP_OK) return res;
+            vTaskDelay(50 / portTICK_PERIOD_MS);
+            ESP_LOGI(TAG, "setting reset line to high");
+            res = gpio_set_level(device->pin_reset, true);
+            if (res != ESP_OK) return res;
+            vTaskDelay(50 / portTICK_PERIOD_MS);
+        }
     } else {
         ESP_LOGI(TAG, "(no reset pin available)");
         vTaskDelay(100 / portTICK_PERIOD_MS);
     }
+
     if (device->mutex != NULL) xSemaphoreGive(device->mutex);
     return ESP_OK;
 }
@@ -269,12 +284,20 @@ esp_err_t ili9341_init(ILI9341* device) {
     /*if (device->mutex == NULL) {
         device->mutex = xSemaphoreCreateMutex();
     }*/
-    
+
     if (device->mutex != NULL) xSemaphoreGive(device->mutex);
 
     //Initialize data/clock select GPIO pin
     res = gpio_set_direction(device->pin_dcx, GPIO_MODE_OUTPUT);
     if (res != ESP_OK) return res;
+
+    if (!device->reset_external_pullup && device->pin_reset >= 0) {
+        res = gpio_hold_dis(device->pin_reset);
+        if (res != ESP_OK) return res;
+
+        res = gpio_set_direction(device->pin_reset, GPIO_MODE_OUTPUT);
+        if (res != ESP_OK) return res;
+    }
 
     if (device->spi_device == NULL) {
         spi_device_interface_config_t devcfg = {
@@ -293,7 +316,7 @@ esp_err_t ili9341_init(ILI9341* device) {
             .pre_cb           = ili9341_spi_pre_transfer_callback, // Handles D/C line
             .post_cb          = NULL
         };
-        res = spi_bus_add_device(VSPI_HOST, &devcfg, &device->spi_device);
+        res = spi_bus_add_device(device->spi_bus, &devcfg, &device->spi_device);
         if (res != ESP_OK) return res;
     }
 
@@ -422,4 +445,13 @@ esp_err_t ili9341_write_partial(ILI9341* device, const uint8_t *frameBuffer, uin
     free(buffer);
     if (device->mutex != NULL) xSemaphoreGive(device->mutex);
     return res;
+}
+
+esp_err_t ili9341_power_en(ILI9341* device) {
+    if (device->pin_reset >= 0 && !device->reset_external_pullup) {
+        ESP_LOGI(TAG, "keep state of pin %d", device->pin_reset);
+        // If there is no external pullup, we need to keep the reset pin HIGH during sleep
+        return gpio_hold_en(device->pin_reset);
+    }
+    return ESP_OK;
 }

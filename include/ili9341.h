@@ -134,6 +134,7 @@ typedef struct ILI9341 {
     // Configuration
     uint8_t rotation;
     bool color_mode;
+    bool reset_external_pullup;
     uint32_t spi_speed;
     uint32_t spi_max_transfer_size;
     ili9341_cb_t callback;
@@ -142,6 +143,7 @@ typedef struct ILI9341 {
     bool dc_level;
     // Mutex
     SemaphoreHandle_t mutex;
+    SemaphoreHandle_t spi_semaphore;
 } ILI9341;
 
 esp_err_t ili9341_init(ILI9341* device);
@@ -159,6 +161,8 @@ esp_err_t ili9341_write_partial_direct(ILI9341* device, const uint8_t *buffer, u
 esp_err_t ili9341_write_partial(ILI9341* device, const uint8_t *buffer, uint16_t x, uint16_t y, uint16_t width, uint16_t height);
 
 esp_err_t ili9341_select(ILI9341* device, const bool mode);
+
+esp_err_t ili9341_power_en(ILI9341* device);
 
 #ifdef __cplusplus
 }
